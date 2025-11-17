@@ -1,14 +1,171 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ConnectionFragment">
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#F5F5F5">
 
-    <!-- TODO: Update blank fragment layout -->
+    <!-- Card de Estado de Conexión -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="@android:color/holo_red_light">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center">
+
+            <!-- Estado -->
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔴 DESCONECTADO"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- Nombre del dispositivo -->
+            <TextView
+                android:id="@+id/tv_device_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sin dispositivo"
+                android:textSize="16sp"
+                android:textColor="@android:color/white"
+                android:layout_marginBottom="4dp"/>
+
+            <!-- Tipo de dispositivo (TX/RX) -->
+            <TextView
+                android:id="@+id/tv_device_type"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Selecciona un dispositivo de la lista"
+                android:textSize="14sp"
+                android:textColor="@android:color/white"
+                android:alpha="0.9"/>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Título de la lista -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📱 Dispositivos Bluetooth Emparejados"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#424242"
+        android:layout_marginBottom="12dp"
+        android:layout_marginStart="4dp"/>
+
+    <!-- Card con lista de dispositivos -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="#E0E0E0">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <!-- Lista de dispositivos -->
+            <ListView
+                android:id="@+id/list_devices"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:padding="8dp"
+                android:divider="#E0E0E0"
+                android:dividerHeight="1dp"
+                android:background="@android:color/white"/>
+
+            <!-- Mensaje si no hay dispositivos -->
+            <TextView
+                android:id="@+id/tv_empty_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No hay dispositivos emparejados\n\nEmpareja un Heltec desde la configuración de Bluetooth"
+                android:textSize="14sp"
+                android:textColor="#757575"
+                android:gravity="center"
+                android:padding="24dp"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Botones de acción -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- Botón Actualizar/Escanear -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_scan"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="🔄 Actualizar Lista"
+            android:textSize="14sp"
+            android:textColor="@android:color/white"
+            app:backgroundTint="#2196F3"
+            app:cornerRadius="12dp"
+            app:icon="@android:drawable/ic_menu_rotate"
+            app:iconTint="@android:color/white"
+            android:layout_marginEnd="8dp"
+            style="@style/Widget.MaterialComponents.Button.Icon"/>
+
+        <!-- Botón Desconectar -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_disconnect"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="🔌 Desconectar"
+            android:textSize="14sp"
+            android:textColor="@android:color/white"
+            app:backgroundTint="#F44336"
+            app:cornerRadius="12dp"
+            app:icon="@android:drawable/ic_menu_close_clear_cancel"
+            app:iconTint="@android:color/white"
+            android:layout_marginStart="8dp"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.Button.Icon"/>
+
+    </LinearLayout>
+
+    <!-- Instrucciones -->
     <TextView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:layout_height="wrap_content"
+        android:text="💡 Toca un dispositivo para conectar\n📡 Busca dispositivos con 'LoRa-TX' o 'LoRa-RX'"
+        android:textSize="12sp"
+        android:textColor="#757575"
+        android:gravity="center"
+        android:layout_marginTop="12dp"
+        android:padding="8dp"
+        android:background="#E3F2FD"
+        android:alpha="0.9"/>
 
-</FrameLayout>
+</LinearLayout>

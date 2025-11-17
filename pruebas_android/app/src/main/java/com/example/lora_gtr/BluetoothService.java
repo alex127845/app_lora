@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Context;
+import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 
@@ -44,6 +45,7 @@ public class BluetoothService {
     }
 
     private ConnectionCallback callback;
+    private String connectedDeviceName = "";  // ← AGREGADO
 
     public BluetoothService(Context context, Handler handler, ConnectionCallback callback) {
         this.handler = handler;
@@ -53,6 +55,8 @@ public class BluetoothService {
 
     public synchronized void connect(BluetoothDevice device) {
         Log.d(TAG, "Conectando a: " + device.getName());
+
+        connectedDeviceName = device.getName();  // ← AGREGADO
 
         if (state == STATE_CONNECTING && connectedThread != null) {
             connectedThread.cancel();
@@ -84,10 +88,20 @@ public class BluetoothService {
         connectedThread.start();
 
         setState(STATE_CONNECTED);
+
+        // ← AGREGADO: Enviar nombre del dispositivo
+        Message msg = handler.obtainMessage(MESSAGE_DEVICE_NAME);
+        Bundle bundle = new Bundle();
+        bundle.putString("device_name", connectedDeviceName);
+        msg.setData(bundle);
+        handler.sendMessage(msg);
+
         if (callback != null) callback.onConnected();
     }
 
     public synchronized void disconnect() {
+        Log.d(TAG, "Desconectando...");
+
         if (connectedThread != null) {
             connectedThread.cancel();
             connectedThread = null;
@@ -103,13 +117,17 @@ public class BluetoothService {
         }
 
         setState(STATE_NONE);
+        connectedDeviceName = "";  // ← AGREGADO
         if (callback != null) callback.onDisconnected();
     }
 
     public void write(byte[] data) {
         ConnectedThread r;
         synchronized (this) {
-            if (state != STATE_CONNECTED) return;
+            if (state != STATE_CONNECTED) {
+                Log.w(TAG, "No conectado, no se puede enviar");
+                return;
+            }
             r = connectedThread;
         }
         r.write(data);
@@ -120,12 +138,17 @@ public class BluetoothService {
     }
 
     private synchronized void setState(int state) {
+        Log.d(TAG, "setState() " + this.state + " -> " + state);
         this.state = state;
         handler.obtainMessage(MESSAGE_STATE_CHANGE, state, -1).sendToTarget();
     }
 
     public synchronized int getState() {
         return state;
+    }
+
+    public String getConnectedDeviceName() {  // ← AGREGADO
+        return connectedDeviceName;
     }
 
     // Thread para conectar
@@ -141,16 +164,23 @@ public class BluetoothService {
                 tmp = device.createRfcommSocketToServiceRecord(SPP_UUID);
             } catch (IOException e) {
                 Log.e(TAG, "Error creando socket", e);
+            } catch (SecurityException e) {  // ← AGREGADO para Android 12+
+                Log.e(TAG, "Permiso denegado", e);
             }
             tmpSocket = tmp;
         }
 
         public void run() {
-            bluetoothAdapter.cancelDiscovery();
+            try {
+                bluetoothAdapter.cancelDiscovery();
+            } catch (SecurityException e) {
+                Log.e(TAG, "Permiso denegado al cancelar discovery", e);
+            }
 
             try {
                 tmpSocket.connect();
             } catch (IOException e) {
+                Log.e(TAG, "Error conectando", e);
                 try {
                     tmpSocket.close();
                 } catch (IOException e2) {
@@ -227,9 +257,14 @@ public class BluetoothService {
         public void write(byte[] buffer) {
             try {
                 outputStream.write(buffer);
+                outputStream.flush();  // ← AGREGADO para asegurar envío
                 handler.obtainMessage(MESSAGE_WRITE, -1, -1, buffer).sendToTarget();
+                Log.d(TAG, "Enviado: " + new String(buffer));
             } catch (IOException e) {
                 Log.e(TAG, "Error escribiendo", e);
+                if (callback != null) {
+                    callback.onError("Error enviando datos");
+                }
             }
         }
 
