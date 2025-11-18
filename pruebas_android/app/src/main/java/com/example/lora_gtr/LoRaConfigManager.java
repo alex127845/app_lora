@@ -19,7 +19,8 @@ public class LoRaConfigManager {
 
     private static final String TAG = "LoRaConfigManager";
 
-    private BluetoothService bluetoothService;
+    //private BluetoothService bluetoothService;
+    private BLEService bluetoothService;
 
     // ==================== COMANDOS BLUETOOTH ====================
     // Comandos que el ESP32 entiende
@@ -38,7 +39,10 @@ public class LoRaConfigManager {
     /**
      * Constructor
      */
-    public LoRaConfigManager(BluetoothService bluetoothService) {
+    /*public LoRaConfigManager(BluetoothService bluetoothService) {
+        this.bluetoothService = bluetoothService;
+    }*/
+    public LoRaConfigManager(BLEService bluetoothService) {
         this.bluetoothService = bluetoothService;
     }
 
@@ -323,9 +327,13 @@ public class LoRaConfigManager {
     /**
      * Verificar si está conectado
      */
-    private boolean isConnected() {
+    /*private boolean isConnected() {
         return bluetoothService != null &&
                 bluetoothService.getState() == BluetoothService.STATE_CONNECTED;
+    }*/
+    private boolean isConnected() {
+        return bluetoothService != null &&
+                bluetoothService.getState() == BLEService.STATE_CONNECTED;
     }
 
     // ==================== COMANDOS PERSONALIZADOS ====================

@@ -23,7 +23,7 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-public class MainActivity extends AppCompatActivity implements BluetoothService.ConnectionCallback {
+public class MainActivity extends AppCompatActivity implements BLEService.ConnectionCallback {
 
     // Constantes para permisos y requests
     private static final int REQUEST_ENABLE_BT = 1;
@@ -36,7 +36,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     // Componentes Bluetooth
     private BluetoothAdapter bluetoothAdapter;
-    private BluetoothService bluetoothService;
+    private BLEService bluetoothService;
     private LoRaConfigManager configManager;
 
     // UI Components
@@ -75,8 +75,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         // Solicitar permisos
         checkPermissions();
 
-        // Inicializar servicio Bluetooth
-        bluetoothService = new BluetoothService(this, handler, this);
+        // Inicializar servicio BLE
+        bluetoothService = new BLEService(this, handler, this);
         configManager = new LoRaConfigManager(bluetoothService);
 
         // Setup Bottom Navigation
@@ -271,17 +271,17 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         @Override
         public boolean handleMessage(@NonNull Message msg) {
             switch (msg.what) {
-                case BluetoothService.MESSAGE_STATE_CHANGE:
+                case BLEService.MESSAGE_STATE_CHANGE:  // ← CORREGIDO
                     handleStateChange(msg.arg1);
                     break;
 
-                case BluetoothService.MESSAGE_READ:
+                case BLEService.MESSAGE_READ:  // ← CORREGIDO
                     byte[] readBuf = (byte[]) msg.obj;
                     String readMessage = new String(readBuf, 0, msg.arg1);
                     processReceivedData(readMessage);
                     break;
 
-                case BluetoothService.MESSAGE_DEVICE_NAME:
+                case BLEService.MESSAGE_DEVICE_NAME:  // ← CORREGIDO
                     connectedDeviceName = msg.getData().getString("device_name");
                     Toast.makeText(MainActivity.this,
                             "✅ Conectado a " + connectedDeviceName,
@@ -289,7 +289,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
                     detectDeviceType(connectedDeviceName);
                     break;
 
-                case BluetoothService.MESSAGE_TOAST:
+                case BLEService.MESSAGE_TOAST:  // ← CORREGIDO
                     Toast.makeText(MainActivity.this,
                             msg.getData().getString("toast"),
                             Toast.LENGTH_SHORT).show();
@@ -301,20 +301,20 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     private void handleStateChange(int state) {
         switch (state) {
-            case BluetoothService.STATE_CONNECTED:
+            case BLEService.STATE_CONNECTED:  // ← CORREGIDO
                 isConnected = true;
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🟢 Conectado a " + connectedDeviceName);
                 }
                 break;
 
-            case BluetoothService.STATE_CONNECTING:
+            case BLEService.STATE_CONNECTING:  // ← CORREGIDO
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🟡 Conectando...");
                 }
                 break;
 
-            case BluetoothService.STATE_NONE:
+            case BLEService.STATE_NONE:  // ← CORREGIDO
                 isConnected = false;
                 currentMode = MODE_NONE;
                 if (getSupportActionBar() != null) {
@@ -457,7 +457,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         });
     }
 
-    public BluetoothService getBluetoothService() {
+    public BLEService getBluetoothService() {  // ← CORREGIDO tipo de retorno
         return bluetoothService;
     }
 
