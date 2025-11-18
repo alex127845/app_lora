@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
@@ -24,6 +25,8 @@ import androidx.fragment.app.FragmentTransaction;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity implements BLEService.ConnectionCallback {
+
+    private static final String TAG = "MainActivity";
 
     // Constantes para permisos y requests
     private static final int REQUEST_ENABLE_BT = 1;
@@ -57,6 +60,8 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Log.d(TAG, "🚀 onCreate iniciado");
+
         // Configurar ActionBar
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle("LoRa Gateway Controller");
@@ -67,25 +72,33 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if (bluetoothAdapter == null) {
+            Log.e(TAG, "❌ BluetoothAdapter es null");
             Toast.makeText(this, "❌ Bluetooth no disponible en este dispositivo", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
 
+        Log.d(TAG, "✅ BluetoothAdapter inicializado");
+
         // Solicitar permisos
         checkPermissions();
 
         // Inicializar servicio BLE
+        Log.d(TAG, "🔧 Inicializando BLEService...");
         bluetoothService = new BLEService(this, handler, this);
         configManager = new LoRaConfigManager(bluetoothService);
+        Log.d(TAG, "✅ BLEService y ConfigManager inicializados");
 
         // Setup Bottom Navigation
         setupBottomNavigation();
 
         // Cargar fragment inicial solo si es primera creación
         if (savedInstanceState == null) {
+            Log.d(TAG, "📱 Cargando ConnectionFragment inicial");
             loadFragment(TAG_CONNECTION);
         }
+
+        Log.d(TAG, "✅ onCreate completado");
     }
 
     /**
@@ -98,21 +111,28 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
 
+            Log.d(TAG, "🔘 Bottom nav seleccionado: " + itemId);
+            Log.d(TAG, "   isConnected = " + isConnected);
+
             if (itemId == R.id.conn) {
                 loadFragment(TAG_CONNECTION);
                 return true;
             } else if (itemId == R.id.file) {
                 if (!isConnected) {
+                    Log.w(TAG, "⚠️  Intento de acceder a File sin conexión");
                     Toast.makeText(this, "⚠️ Conecta un dispositivo primero", Toast.LENGTH_SHORT).show();
                     return false;
                 }
+                Log.d(TAG, "✅ Navegando a FileFragment");
                 loadFragment(TAG_FILE);
                 return true;
             } else if (itemId == R.id.setting) {
                 if (!isConnected) {
+                    Log.w(TAG, "⚠️  Intento de acceder a Setting sin conexión");
                     Toast.makeText(this, "⚠️ Conecta un dispositivo primero", Toast.LENGTH_SHORT).show();
                     return false;
                 }
+                Log.d(TAG, "✅ Navegando a SettingFragment");
                 loadFragment(TAG_SETTING);
                 return true;
             }
@@ -125,11 +145,14 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
      * Cargar fragment en el contenedor
      */
     private void loadFragment(String tag) {
+        Log.d(TAG, "📄 loadFragment(" + tag + ")");
+
         FragmentManager fragmentManager = getSupportFragmentManager();
         Fragment fragment = fragmentManager.findFragmentByTag(tag);
 
         // Si el fragment no existe, crearlo
         if (fragment == null) {
+            Log.d(TAG, "   Fragment no existe, creándolo...");
             switch (tag) {
                 case TAG_CONNECTION:
                     fragment = new ConnectionFragment();
@@ -141,8 +164,11 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
                     fragment = new SettingFragment();
                     break;
                 default:
+                    Log.e(TAG, "❌ Tag desconocido: " + tag);
                     return;
             }
+        } else {
+            Log.d(TAG, "   Fragment ya existe");
         }
 
         // Ocultar todos los fragments
@@ -156,12 +182,15 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
 
         // Mostrar o agregar el fragment actual
         if (fragment.isAdded()) {
+            Log.d(TAG, "   Mostrando fragment existente");
             transaction.show(fragment);
         } else {
+            Log.d(TAG, "   Agregando nuevo fragment");
             transaction.add(R.id.fragment_container, fragment, tag);
         }
 
         transaction.commit();
+        Log.d(TAG, "✅ Transaction committed");
     }
 
     /**
@@ -184,7 +213,10 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
             }
 
             if (!allGranted) {
+                Log.d(TAG, "⚠️  Solicitando permisos de Bluetooth");
                 ActivityCompat.requestPermissions(this, permissions, REQUEST_PERMISSIONS);
+            } else {
+                Log.d(TAG, "✅ Todos los permisos otorgados");
             }
         } else {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -211,9 +243,12 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
             }
 
             if (!allGranted) {
+                Log.e(TAG, "❌ Permisos denegados");
                 Toast.makeText(this,
                         "⚠️ Se necesitan permisos para usar Bluetooth",
                         Toast.LENGTH_LONG).show();
+            } else {
+                Log.d(TAG, "✅ Permisos otorgados");
             }
         }
     }
@@ -245,12 +280,19 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
     }
 
     public void connectToDevice(BluetoothDevice device) {
+        Log.d(TAG, "🔌 connectToDevice llamado");
+        Log.d(TAG, "   Dispositivo: " + device.getName());
+
         if (bluetoothService != null) {
             bluetoothService.connect(device);
+        } else {
+            Log.e(TAG, "❌ bluetoothService es null!");
         }
     }
 
     public void disconnectDevice() {
+        Log.d(TAG, "🔌 disconnectDevice llamado");
+
         if (bluetoothService != null) {
             bluetoothService.disconnect();
         }
@@ -270,64 +312,93 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
     private final Handler handler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(@NonNull Message msg) {
+            Log.d(TAG, "📩 Handler recibió mensaje: " + msg.what);
+
             switch (msg.what) {
-                case BLEService.MESSAGE_STATE_CHANGE:  // ← CORREGIDO
+                case BLEService.MESSAGE_STATE_CHANGE:
+                    Log.d(TAG, "🔄 MESSAGE_STATE_CHANGE recibido, state = " + msg.arg1);
                     handleStateChange(msg.arg1);
                     break;
 
-                case BLEService.MESSAGE_READ:  // ← CORREGIDO
+                case BLEService.MESSAGE_READ:
+                    Log.d(TAG, "📖 MESSAGE_READ recibido");
                     byte[] readBuf = (byte[]) msg.obj;
                     String readMessage = new String(readBuf, 0, msg.arg1);
                     processReceivedData(readMessage);
                     break;
 
-                case BLEService.MESSAGE_DEVICE_NAME:  // ← CORREGIDO
+                case BLEService.MESSAGE_DEVICE_NAME:
+                    Log.d(TAG, "📱 MESSAGE_DEVICE_NAME recibido");
                     connectedDeviceName = msg.getData().getString("device_name");
+                    Log.d(TAG, "   Nombre del dispositivo: " + connectedDeviceName);
                     Toast.makeText(MainActivity.this,
                             "✅ Conectado a " + connectedDeviceName,
                             Toast.LENGTH_SHORT).show();
                     detectDeviceType(connectedDeviceName);
                     break;
 
-                case BLEService.MESSAGE_TOAST:  // ← CORREGIDO
+                case BLEService.MESSAGE_TOAST:
+                    Log.d(TAG, "💬 MESSAGE_TOAST recibido");
                     Toast.makeText(MainActivity.this,
                             msg.getData().getString("toast"),
                             Toast.LENGTH_SHORT).show();
                     break;
+
+                default:
+                    Log.w(TAG, "⚠️  Mensaje desconocido: " + msg.what);
             }
             return true;
         }
     });
 
     private void handleStateChange(int state) {
+        Log.d(TAG, "📊 handleStateChange llamado con state = " + state);
+
         switch (state) {
-            case BLEService.STATE_CONNECTED:  // ← CORREGIDO
+            case BLEService.STATE_CONNECTED:
+                Log.d(TAG, "🟢 STATE_CONNECTED");
                 isConnected = true;
+                Log.d(TAG, "✅ isConnected ahora es TRUE");
+
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🟢 Conectado a " + connectedDeviceName);
                 }
                 break;
 
-            case BLEService.STATE_CONNECTING:  // ← CORREGIDO
+            case BLEService.STATE_CONNECTING:
+                Log.d(TAG, "🟡 STATE_CONNECTING");
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🟡 Conectando...");
                 }
                 break;
 
-            case BLEService.STATE_NONE:  // ← CORREGIDO
+            case BLEService.STATE_NONE:
+                Log.d(TAG, "🔴 STATE_NONE");
                 isConnected = false;
                 currentMode = MODE_NONE;
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🔴 No conectado");
                 }
                 break;
+
+            default:
+                Log.w(TAG, "⚠️  Estado desconocido: " + state);
         }
+
+        Log.d(TAG, "Estado final: isConnected = " + isConnected);
     }
 
     private void detectDeviceType(String deviceName) {
-        if (deviceName == null) return;
+        Log.d(TAG, "🔍 detectDeviceType llamado");
+        Log.d(TAG, "   deviceName = " + deviceName);
+
+        if (deviceName == null) {
+            Log.w(TAG, "⚠️  deviceName es null");
+            return;
+        }
 
         if (deviceName.toUpperCase().contains("TX")) {
+            Log.d(TAG, "✅ Dispositivo TX detectado");
             currentMode = MODE_TRANSMITTER;
             if (getSupportActionBar() != null) {
                 getSupportActionBar().setTitle("📡 TX: " + deviceName);
@@ -335,39 +406,60 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
             Toast.makeText(this, "📡 Modo TRANSMISOR activado", Toast.LENGTH_SHORT).show();
 
         } else if (deviceName.toUpperCase().contains("RX")) {
+            Log.d(TAG, "✅ Dispositivo RX detectado");
             currentMode = MODE_RECEIVER;
             if (getSupportActionBar() != null) {
                 getSupportActionBar().setTitle("📥 RX: " + deviceName);
             }
             Toast.makeText(this, "📥 Modo RECEPTOR activado", Toast.LENGTH_SHORT).show();
         } else {
+            Log.w(TAG, "⚠️  Tipo de dispositivo desconocido");
             currentMode = MODE_NONE;
             Toast.makeText(this, "⚠️ Dispositivo desconocido", Toast.LENGTH_SHORT).show();
         }
 
+        Log.d(TAG, "currentMode final = " + currentMode);
+        Log.d(TAG, "🔔 Llamando notifyFragmentsModeChanged()");
         notifyFragmentsModeChanged();
     }
 
     private void notifyFragmentsModeChanged() {
+        Log.d(TAG, "🔔 notifyFragmentsModeChanged llamado");
+        Log.d(TAG, "   currentMode = " + currentMode);
+        Log.d(TAG, "   isConnected = " + isConnected);
+
         FragmentManager fm = getSupportFragmentManager();
 
         FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
         if (fileFragment != null && fileFragment.isAdded()) {
+            Log.d(TAG, "✅ Notificando a FileFragment");
             fileFragment.onModeChanged(currentMode);
+        } else {
+            Log.d(TAG, "⏭️  FileFragment no disponible (normal si no se ha navegado)");
         }
 
         SettingFragment settingFragment = (SettingFragment) fm.findFragmentByTag(TAG_SETTING);
         if (settingFragment != null && settingFragment.isAdded()) {
+            Log.d(TAG, "✅ Notificando a SettingFragment");
             settingFragment.onModeChanged(currentMode);
+        } else {
+            Log.d(TAG, "⏭️  SettingFragment no disponible (normal si no se ha navegado)");
         }
 
         ConnectionFragment connectionFragment = (ConnectionFragment) fm.findFragmentByTag(TAG_CONNECTION);
         if (connectionFragment != null && connectionFragment.isAdded()) {
+            Log.d(TAG, "✅ Notificando a ConnectionFragment");
             connectionFragment.onConnectionStateChanged(true);
+        } else {
+            Log.e(TAG, "❌ ConnectionFragment no disponible! (ESTO ES UN PROBLEMA)");
         }
+
+        Log.d(TAG, "✅ notifyFragmentsModeChanged completado");
     }
 
     private void notifyFragmentsDisconnected() {
+        Log.d(TAG, "🔔 notifyFragmentsDisconnected llamado");
+
         FragmentManager fm = getSupportFragmentManager();
 
         FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
@@ -387,7 +479,7 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
     }
 
     private void processReceivedData(String data) {
-        android.util.Log.d("MainActivity", "Datos recibidos: " + data);
+        Log.d(TAG, "📥 processReceivedData: " + data);
 
         FragmentManager fm = getSupportFragmentManager();
 
@@ -416,11 +508,13 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
 
     @Override
     public void onConnected() {
+        Log.d(TAG, "📞 onConnected() callback");
         runOnUiThread(() -> {
             Toast.makeText(this, "✅ Conexión establecida", Toast.LENGTH_SHORT).show();
 
             new Handler().postDelayed(() -> {
                 if (configManager != null) {
+                    Log.d(TAG, "📡 Solicitando config y archivos");
                     configManager.getConfig();
                     configManager.listFiles();
                 }
@@ -430,6 +524,7 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
 
     @Override
     public void onDisconnected() {
+        Log.d(TAG, "📞 onDisconnected() callback");
         runOnUiThread(() -> {
             Toast.makeText(this, "🔴 Desconectado", Toast.LENGTH_SHORT).show();
             currentMode = MODE_NONE;
@@ -452,12 +547,13 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
 
     @Override
     public void onError(String error) {
+        Log.e(TAG, "📞 onError() callback: " + error);
         runOnUiThread(() -> {
             Toast.makeText(this, "❌ Error: " + error, Toast.LENGTH_LONG).show();
         });
     }
 
-    public BLEService getBluetoothService() {  // ← CORREGIDO tipo de retorno
+    public BLEService getBluetoothService() {
         return bluetoothService;
     }
 
@@ -530,6 +626,7 @@ public class MainActivity extends AppCompatActivity implements BLEService.Connec
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d(TAG, "💥 onDestroy llamado");
         if (bluetoothService != null) {
             bluetoothService.disconnect();
         }

@@ -6,7 +6,18 @@
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+
+    <!-- Para Android 12+ (API 31+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- Para Android 11 y anteriores -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+
+    <!-- Declarar que usas BLE -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
 
     <!-- Para Android 12+ -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

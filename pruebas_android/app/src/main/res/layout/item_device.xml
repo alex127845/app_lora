@@ -6,8 +6,8 @@
     android:padding="16dp"
     android:background="@drawable/device_item_background"
     android:gravity="center_vertical"
-    android:clickable="true"
-    android:focusable="true">
+    android:descendantFocusability="blocksDescendants">
+    <!-- ⬆️ ESTO PREVIENE que los hijos bloqueen el click -->
 
     <!-- Icono del dispositivo -->
     <ImageView

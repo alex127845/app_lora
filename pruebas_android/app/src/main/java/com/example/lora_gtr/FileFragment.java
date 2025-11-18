@@ -14,7 +14,6 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
@@ -32,17 +31,13 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Fragment para gestión de archivos
- * Permite subir, descargar, enviar por LoRa y eliminar archivos
- */
 public class FileFragment extends Fragment implements FileListAdapter.OnFileActionListener {
 
     // UI Components
     private RecyclerView recyclerViewFiles;
     private FloatingActionButton fabUpload;
-    private TextView tvEmptyMessage;
-    private TextView tvConnectionWarning;
+    private View layoutEmptyMessage;        // ← CORREGIDO
+    private View cardConnectionWarning;      // ← CORREGIDO
     private ProgressBar progressBar;
     private TextView tvProgressText;
 
@@ -72,7 +67,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         mainActivity = (MainActivity) getActivity();
         fileList = new ArrayList<>();
 
-        // Configurar file picker
         filePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -91,52 +85,33 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_file, container, false);
 
-        // Inicializar vistas
         initViews(view);
-
-        // Configurar RecyclerView
         setupRecyclerView();
-
-        // Configurar listeners
         setupListeners();
-
-        // Actualizar UI
         updateUI();
 
         return view;
     }
 
-    /**
-     * Inicializar vistas
-     */
     private void initViews(View view) {
         recyclerViewFiles = view.findViewById(R.id.recycler_files);
         fabUpload = view.findViewById(R.id.fab_upload);
-        tvEmptyMessage = view.findViewById(R.id.tv_empty_message);
-        tvConnectionWarning = view.findViewById(R.id.tv_connection_warning);
+        layoutEmptyMessage = view.findViewById(R.id.tv_empty_message);        // ← CORREGIDO
+        cardConnectionWarning = view.findViewById(R.id.tv_connection_warning); // ← CORREGIDO
         progressBar = view.findViewById(R.id.progress_bar);
         tvProgressText = view.findViewById(R.id.tv_progress_text);
     }
 
-    /**
-     * Configurar RecyclerView
-     */
     private void setupRecyclerView() {
         recyclerViewFiles.setLayoutManager(new LinearLayoutManager(requireContext()));
         fileAdapter = new FileListAdapter(fileList, this, currentMode);
         recyclerViewFiles.setAdapter(fileAdapter);
     }
 
-    /**
-     * Configurar listeners
-     */
     private void setupListeners() {
         fabUpload.setOnClickListener(v -> openFilePicker());
     }
 
-    /**
-     * Abrir selector de archivos
-     */
     private void openFilePicker() {
         if (!isConnected) {
             Toast.makeText(requireContext(),
@@ -158,9 +133,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }
     }
 
-    /**
-     * Subir archivo desde URI
-     */
     private void uploadFileFromUri(Uri uri) {
         try {
             InputStream inputStream = requireContext().getContentResolver().openInputStream(uri);
@@ -169,10 +141,7 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
                 return;
             }
 
-            // Obtener nombre del archivo
             String filename = getFileNameFromUri(uri);
-
-            // Crear archivo temporal
             File tempFile = new File(requireContext().getCacheDir(), filename);
             FileOutputStream outputStream = new FileOutputStream(tempFile);
 
@@ -188,7 +157,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
             outputStream.close();
             inputStream.close();
 
-            // Mostrar confirmación
             String message = "📤 Subir archivo:\n\n" +
                     "📄 " + filename + "\n" +
                     "📊 " + formatFileSize(totalBytes) + "\n\n" +
@@ -210,9 +178,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }
     }
 
-    /**
-     * Subir archivo al ESP32
-     */
     private void uploadFile(File file) {
         if (!isConnected || mainActivity == null) {
             Toast.makeText(requireContext(), "⚠️ No conectado", Toast.LENGTH_SHORT).show();
@@ -221,7 +186,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
 
         showProgress(true, "Subiendo " + file.getName() + "...");
 
-        // Subir en un hilo separado
         new Thread(() -> {
             try {
                 mainActivity.getConfigManager().uploadFile(file);
@@ -231,8 +195,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
                     Toast.makeText(requireContext(),
                             "✅ Archivo subido: " + file.getName(),
                             Toast.LENGTH_SHORT).show();
-
-                    // Actualizar lista
                     refreshFileList();
                 });
 
@@ -247,9 +209,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }).start();
     }
 
-    /**
-     * Obtener nombre de archivo desde URI
-     */
     private String getFileNameFromUri(Uri uri) {
         String filename = "archivo_" + System.currentTimeMillis();
 
@@ -267,9 +226,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         return filename;
     }
 
-    /**
-     * Formatear tamaño de archivo
-     */
     private String formatFileSize(long bytes) {
         if (bytes < 1024) {
             return bytes + " B";
@@ -280,9 +236,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }
     }
 
-    /**
-     * Actualizar lista de archivos
-     */
     private void refreshFileList() {
         if (!isConnected || mainActivity == null) {
             return;
@@ -291,9 +244,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         mainActivity.getConfigManager().listFiles();
     }
 
-    /**
-     * Mostrar/ocultar progreso
-     */
     private void showProgress(boolean show, String message) {
         requireActivity().runOnUiThread(() -> {
             if (show) {
@@ -311,9 +261,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         });
     }
 
-    /**
-     * Actualizar UI según estado
-     */
     private void updateUI() {
         if (mainActivity != null) {
             isConnected = mainActivity.isConnected();
@@ -321,10 +268,9 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }
 
         if (isConnected) {
-            tvConnectionWarning.setVisibility(View.GONE);
+            cardConnectionWarning.setVisibility(View.GONE);  // ← CORREGIDO
             fabUpload.show();
 
-            // Mostrar FAB solo para TX
             if (currentMode == MainActivity.MODE_TRANSMITTER) {
                 fabUpload.setVisibility(View.VISIBLE);
             } else {
@@ -332,24 +278,20 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
             }
 
         } else {
-            tvConnectionWarning.setVisibility(View.VISIBLE);
+            cardConnectionWarning.setVisibility(View.VISIBLE);  // ← CORREGIDO
             fabUpload.hide();
         }
 
-        // Actualizar adapter con el modo actual
         fileAdapter.setCurrentMode(currentMode);
 
-        // Mostrar mensaje si está vacío
         if (fileList.isEmpty()) {
-            tvEmptyMessage.setVisibility(View.VISIBLE);
+            layoutEmptyMessage.setVisibility(View.VISIBLE);  // ← CORREGIDO
             recyclerViewFiles.setVisibility(View.GONE);
         } else {
-            tvEmptyMessage.setVisibility(View.GONE);
+            layoutEmptyMessage.setVisibility(View.GONE);  // ← CORREGIDO
             recyclerViewFiles.setVisibility(View.VISIBLE);
         }
     }
-
-    // ==================== Callbacks de FileListAdapter ====================
 
     @Override
     public void onSendLoRa(FileItem file) {
@@ -403,7 +345,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
                                 "🗑️ Eliminando " + file.getFilename() + "...",
                                 Toast.LENGTH_SHORT).show();
 
-                        // Actualizar lista después de 500ms
                         new android.os.Handler().postDelayed(() -> refreshFileList(), 500);
                     }
                 })
@@ -411,9 +352,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
                 .show();
     }
 
-    /**
-     * Descargar archivo del ESP32
-     */
     private void downloadFile(FileItem file) {
         if (!isConnected || mainActivity == null) {
             Toast.makeText(requireContext(), "⚠️ No conectado", Toast.LENGTH_SHORT).show();
@@ -430,14 +368,8 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         mainActivity.getConfigManager().downloadFile(file.getFilename());
     }
 
-    // ==================== Procesamiento de datos recibidos ====================
-
-    /**
-     * Llamado cuando se reciben datos del ESP32
-     */
     public void onDataReceived(String data) {
         requireActivity().runOnUiThread(() -> {
-            // Lista de archivos
             if (data.equals("[FILES_START]")) {
                 fileList.clear();
                 return;
@@ -449,7 +381,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
                 return;
             }
 
-            // Parsear archivo: "nombre.txt,1234"
             if (data.contains(",") && !data.startsWith("[")) {
                 String[] parts = data.split(",");
                 if (parts.length == 2) {
@@ -467,11 +398,7 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         });
     }
 
-    /**
-     * Inicio de descarga de archivo
-     */
     public void onFileDownloadStart(String data) {
-        // Formato: [FILE_START:filename.txt:1234]
         try {
             String content = data.substring(12, data.length() - 1);
             String[] parts = content.split(":");
@@ -491,15 +418,11 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }
     }
 
-    /**
-     * Fin de descarga de archivo
-     */
     public void onFileDownloadEnd() {
         if (!isDownloading) return;
 
         isDownloading = false;
 
-        // Guardar archivo en Descargas
         saveDownloadedFile(currentDownloadingFile, downloadBuffer.toString().getBytes());
 
         requireActivity().runOnUiThread(() -> {
@@ -513,9 +436,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         currentDownloadingFile = "";
     }
 
-    /**
-     * Guardar archivo descargado
-     */
     private void saveDownloadedFile(String filename, byte[] data) {
         try {
             File downloadsDir = Environment.getExternalStoragePublicDirectory(
@@ -542,9 +462,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         }
     }
 
-    /**
-     * Llamado desde MainActivity cuando cambia el modo
-     */
     public void onModeChanged(int mode) {
         currentMode = mode;
         isConnected = (mode != MainActivity.MODE_NONE);
@@ -564,7 +481,6 @@ public class FileFragment extends Fragment implements FileListAdapter.OnFileActi
         super.onResume();
         updateUI();
 
-        // Actualizar lista si está conectado
         if (isConnected) {
             refreshFileList();
         }
