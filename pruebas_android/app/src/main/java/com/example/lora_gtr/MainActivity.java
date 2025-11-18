@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -30,8 +31,8 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
 
     // Modos de operación
     public static final int MODE_NONE = 0;
-    public static final int MODE_TRANSMITTER = 1;  // TX
-    public static final int MODE_RECEIVER = 2;     // RX
+    public static final int MODE_TRANSMITTER = 1;
+    public static final int MODE_RECEIVER = 2;
 
     // Componentes Bluetooth
     private BluetoothAdapter bluetoothAdapter;
@@ -46,11 +47,10 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     private int currentMode = MODE_NONE;
     private boolean isConnected = false;
 
-    // Fragmentos
-    private ConnectionFragment connectionFragment;
-    private FileFragment fileFragment;
-    private SettingFragment settingFragment;
-    private Fragment activeFragment;
+    // Tags para fragments
+    private static final String TAG_CONNECTION = "ConnectionFragment";
+    private static final String TAG_FILE = "FileFragment";
+    private static final String TAG_SETTING = "SettingFragment";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,10 +82,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         // Setup Bottom Navigation
         setupBottomNavigation();
 
-        // Cargar fragment inicial (Connection)
+        // Cargar fragment inicial solo si es primera creación
         if (savedInstanceState == null) {
-            loadFragment(connectionFragment);
-            bottomNavigationView.setSelectedItemId(R.id.conn);
+            loadFragment(TAG_CONNECTION);
         }
     }
 
@@ -95,31 +94,26 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     private void setupBottomNavigation() {
         bottomNavigationView = findViewById(R.id.bottonNavigationView);
 
-        // Crear fragmentos
-        connectionFragment = new ConnectionFragment();
-        fileFragment = new FileFragment();
-        settingFragment = new SettingFragment();
-
         // Configurar listener
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
 
             if (itemId == R.id.conn) {
-                loadFragment(connectionFragment);
+                loadFragment(TAG_CONNECTION);
                 return true;
             } else if (itemId == R.id.file) {
                 if (!isConnected) {
                     Toast.makeText(this, "⚠️ Conecta un dispositivo primero", Toast.LENGTH_SHORT).show();
                     return false;
                 }
-                loadFragment(fileFragment);
+                loadFragment(TAG_FILE);
                 return true;
             } else if (itemId == R.id.setting) {
                 if (!isConnected) {
                     Toast.makeText(this, "⚠️ Conecta un dispositivo primero", Toast.LENGTH_SHORT).show();
                     return false;
                 }
-                loadFragment(settingFragment);
+                loadFragment(TAG_SETTING);
                 return true;
             }
 
@@ -130,21 +124,44 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     /**
      * Cargar fragment en el contenedor
      */
-    private void loadFragment(Fragment fragment) {
-        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+    private void loadFragment(String tag) {
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        Fragment fragment = fragmentManager.findFragmentByTag(tag);
 
-        if (activeFragment != null) {
-            transaction.hide(activeFragment);
+        // Si el fragment no existe, crearlo
+        if (fragment == null) {
+            switch (tag) {
+                case TAG_CONNECTION:
+                    fragment = new ConnectionFragment();
+                    break;
+                case TAG_FILE:
+                    fragment = new FileFragment();
+                    break;
+                case TAG_SETTING:
+                    fragment = new SettingFragment();
+                    break;
+                default:
+                    return;
+            }
         }
 
+        // Ocultar todos los fragments
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+
+        for (Fragment frag : fragmentManager.getFragments()) {
+            if (frag != null) {
+                transaction.hide(frag);
+            }
+        }
+
+        // Mostrar o agregar el fragment actual
         if (fragment.isAdded()) {
             transaction.show(fragment);
         } else {
-            transaction.add(R.id.fragment_container, fragment);
+            transaction.add(R.id.fragment_container, fragment, tag);
         }
 
         transaction.commit();
-        activeFragment = fragment;
     }
 
     /**
@@ -152,7 +169,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
      */
     private void checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Android 12+
             String[] permissions = {
                     Manifest.permission.BLUETOOTH_CONNECT,
                     Manifest.permission.BLUETOOTH_SCAN,
@@ -171,7 +187,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
                 ActivityCompat.requestPermissions(this, permissions, REQUEST_PERMISSIONS);
             }
         } else {
-            // Android 11 o anterior
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                     != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this,
@@ -207,8 +222,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     protected void onStart() {
         super.onStart();
 
-        // Verificar si Bluetooth está habilitado
-        if (!bluetoothAdapter.isEnabled()) {
+        if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled()) {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
                     == PackageManager.PERMISSION_GRANTED) {
@@ -230,18 +244,12 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         }
     }
 
-    /**
-     * Conectar a un dispositivo Bluetooth
-     */
     public void connectToDevice(BluetoothDevice device) {
         if (bluetoothService != null) {
             bluetoothService.connect(device);
         }
     }
 
-    /**
-     * Desconectar del dispositivo actual
-     */
     public void disconnectDevice() {
         if (bluetoothService != null) {
             bluetoothService.disconnect();
@@ -256,14 +264,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         }
 
         notifyFragmentsDisconnected();
-
-        // Volver al fragment de conexión
         bottomNavigationView.setSelectedItemId(R.id.conn);
     }
 
-    /**
-     * Handler para mensajes del servicio Bluetooth
-     */
     private final Handler handler = new Handler(new Handler.Callback() {
         @Override
         public boolean handleMessage(@NonNull Message msg) {
@@ -296,9 +299,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         }
     });
 
-    /**
-     * Manejar cambios de estado de conexión
-     */
     private void handleStateChange(int state) {
         switch (state) {
             case BluetoothService.STATE_CONNECTED:
@@ -324,9 +324,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         }
     }
 
-    /**
-     * Detectar tipo de dispositivo (TX o RX) automáticamente
-     */
     private void detectDeviceType(String deviceName) {
         if (deviceName == null) return;
 
@@ -348,66 +345,74 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
             Toast.makeText(this, "⚠️ Dispositivo desconocido", Toast.LENGTH_SHORT).show();
         }
 
-        // Notificar a los fragmentos del cambio de modo
         notifyFragmentsModeChanged();
     }
 
-    /**
-     * Notificar a los fragmentos que el modo cambió
-     */
     private void notifyFragmentsModeChanged() {
+        FragmentManager fm = getSupportFragmentManager();
+
+        FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
         if (fileFragment != null && fileFragment.isAdded()) {
             fileFragment.onModeChanged(currentMode);
         }
+
+        SettingFragment settingFragment = (SettingFragment) fm.findFragmentByTag(TAG_SETTING);
         if (settingFragment != null && settingFragment.isAdded()) {
             settingFragment.onModeChanged(currentMode);
         }
+
+        ConnectionFragment connectionFragment = (ConnectionFragment) fm.findFragmentByTag(TAG_CONNECTION);
         if (connectionFragment != null && connectionFragment.isAdded()) {
             connectionFragment.onConnectionStateChanged(true);
         }
     }
 
-    /**
-     * Notificar desconexión a los fragmentos
-     */
     private void notifyFragmentsDisconnected() {
+        FragmentManager fm = getSupportFragmentManager();
+
+        FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
         if (fileFragment != null && fileFragment.isAdded()) {
             fileFragment.onModeChanged(MODE_NONE);
         }
+
+        SettingFragment settingFragment = (SettingFragment) fm.findFragmentByTag(TAG_SETTING);
         if (settingFragment != null && settingFragment.isAdded()) {
             settingFragment.onModeChanged(MODE_NONE);
         }
+
+        ConnectionFragment connectionFragment = (ConnectionFragment) fm.findFragmentByTag(TAG_CONNECTION);
         if (connectionFragment != null && connectionFragment.isAdded()) {
             connectionFragment.onConnectionStateChanged(false);
         }
     }
 
-    /**
-     * Procesar datos recibidos desde el ESP32
-     */
     private void processReceivedData(String data) {
         android.util.Log.d("MainActivity", "Datos recibidos: " + data);
 
+        FragmentManager fm = getSupportFragmentManager();
+
         if (data.startsWith("[FILES_START]") || data.startsWith("[FILES_END]") || data.contains(",")) {
+            FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
             if (fileFragment != null && fileFragment.isAdded()) {
                 fileFragment.onDataReceived(data);
             }
         } else if (data.startsWith("{") && data.contains("\"bw\"")) {
+            SettingFragment settingFragment = (SettingFragment) fm.findFragmentByTag(TAG_SETTING);
             if (settingFragment != null && settingFragment.isAdded()) {
                 settingFragment.onConfigReceived(data);
             }
         } else if (data.startsWith("[FILE_START:")) {
+            FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
             if (fileFragment != null && fileFragment.isAdded()) {
                 fileFragment.onFileDownloadStart(data);
             }
         } else if (data.equals("[FILE_END]")) {
+            FileFragment fileFragment = (FileFragment) fm.findFragmentByTag(TAG_FILE);
             if (fileFragment != null && fileFragment.isAdded()) {
                 fileFragment.onFileDownloadEnd();
             }
         }
     }
-
-    // ==================== Callbacks de BluetoothService ====================
 
     @Override
     public void onConnected() {
@@ -452,8 +457,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         });
     }
 
-    // ==================== Getters públicos ====================
-
     public BluetoothService getBluetoothService() {
         return bluetoothService;
     }
@@ -477,8 +480,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     public String getConnectedDeviceName() {
         return connectedDeviceName;
     }
-
-    // ==================== Menú ====================
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
