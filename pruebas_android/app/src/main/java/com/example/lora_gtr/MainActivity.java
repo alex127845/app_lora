@@ -18,12 +18,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentActivity;
-import androidx.viewpager2.adapter.FragmentStateAdapter;
-import androidx.viewpager2.widget.ViewPager2;
+import androidx.fragment.app.FragmentTransaction;
 
-import com.google.android.material.tabs.TabLayout;
-import com.google.android.material.tabs.TabLayoutMediator;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity implements BluetoothService.ConnectionCallback {
 
@@ -42,9 +39,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     private LoRaConfigManager configManager;
 
     // UI Components
-    private TabLayout tabLayout;
-    private ViewPager2 viewPager;
-    private ViewPagerAdapter pagerAdapter;
+    private BottomNavigationView bottomNavigationView;
 
     // Estado
     private String connectedDeviceName = "";
@@ -55,6 +50,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
     private ConnectionFragment connectionFragment;
     private FileFragment fileFragment;
     private SettingFragment settingFragment;
+    private Fragment activeFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,75 +79,72 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         bluetoothService = new BluetoothService(this, handler, this);
         configManager = new LoRaConfigManager(bluetoothService);
 
-        // Setup UI
-        setupTabs();
+        // Setup Bottom Navigation
+        setupBottomNavigation();
+
+        // Cargar fragment inicial (Connection)
+        if (savedInstanceState == null) {
+            loadFragment(connectionFragment);
+            bottomNavigationView.setSelectedItemId(R.id.conn);
+        }
     }
 
     /**
-     * Configurar tabs y ViewPager
+     * Configurar Bottom Navigation
      */
-    private void setupTabs() {
-        tabLayout = findViewById(R.id.tab_layout);
-        viewPager = findViewById(R.id.view_pager);
+    private void setupBottomNavigation() {
+        bottomNavigationView = findViewById(R.id.bottonNavigationView);
 
         // Crear fragmentos
         connectionFragment = new ConnectionFragment();
         fileFragment = new FileFragment();
         settingFragment = new SettingFragment();
 
-        // Configurar adapter
-        pagerAdapter = new ViewPagerAdapter(this);
-        viewPager.setAdapter(pagerAdapter);
+        // Configurar listener
+        bottomNavigationView.setOnItemSelectedListener(item -> {
+            int itemId = item.getItemId();
 
-        // Vincular TabLayout con ViewPager2
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            switch (position) {
-                case 0:
-                    tab.setText("📱 Conexión");
-                    tab.setIcon(R.drawable.ic_bluetooth);
-                    break;
-                case 1:
-                    tab.setText("📁 Archivos");
-                    tab.setIcon(R.drawable.ic_file);
-                    break;
-                case 2:
-                    tab.setText("⚙️ Config");
-                    tab.setIcon(R.drawable.ic_settings);
-                    break;
+            if (itemId == R.id.conn) {
+                loadFragment(connectionFragment);
+                return true;
+            } else if (itemId == R.id.file) {
+                if (!isConnected) {
+                    Toast.makeText(this, "⚠️ Conecta un dispositivo primero", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+                loadFragment(fileFragment);
+                return true;
+            } else if (itemId == R.id.setting) {
+                if (!isConnected) {
+                    Toast.makeText(this, "⚠️ Conecta un dispositivo primero", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+                loadFragment(settingFragment);
+                return true;
             }
-        }).attach();
 
-        // Deshabilitar swipe si no está conectado
-        viewPager.setUserInputEnabled(false);
+            return false;
+        });
     }
 
     /**
-     * ViewPager Adapter
+     * Cargar fragment en el contenedor
      */
-    private class ViewPagerAdapter extends FragmentStateAdapter {
-        public ViewPagerAdapter(@NonNull FragmentActivity fragmentActivity) {
-            super(fragmentActivity);
+    private void loadFragment(Fragment fragment) {
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+
+        if (activeFragment != null) {
+            transaction.hide(activeFragment);
         }
 
-        @NonNull
-        @Override
-        public Fragment createFragment(int position) {
-            switch (position) {
-                case 0:
-                    return connectionFragment;
-                case 1:
-                    return fileFragment;
-                case 2:
-                    return settingFragment;
-                default:
-                    return connectionFragment;
-            }
+        if (fragment.isAdded()) {
+            transaction.show(fragment);
+        } else {
+            transaction.add(R.id.fragment_container, fragment);
         }
 
-        @Override
-        public int getItemCount() {
-            return 3;
-        }
+        transaction.commit();
+        activeFragment = fragment;
     }
 
     /**
@@ -263,6 +256,9 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         }
 
         notifyFragmentsDisconnected();
+
+        // Volver al fragment de conexión
+        bottomNavigationView.setSelectedItemId(R.id.conn);
     }
 
     /**
@@ -310,7 +306,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🟢 Conectado a " + connectedDeviceName);
                 }
-                viewPager.setUserInputEnabled(true);
                 break;
 
             case BluetoothService.STATE_CONNECTING:
@@ -325,7 +320,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
                 if (getSupportActionBar() != null) {
                     getSupportActionBar().setTitle("🔴 No conectado");
                 }
-                viewPager.setUserInputEnabled(false);
                 break;
         }
     }
@@ -392,27 +386,21 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
      * Procesar datos recibidos desde el ESP32
      */
     private void processReceivedData(String data) {
-        // Log para debug
         android.util.Log.d("MainActivity", "Datos recibidos: " + data);
 
-        // Pasar datos a los fragmentos correspondientes
-        if (data.startsWith("[FILES_START]") || data.startsWith("[FILES_END]") || data.contains(".")) {
-            // Datos de lista de archivos
+        if (data.startsWith("[FILES_START]") || data.startsWith("[FILES_END]") || data.contains(",")) {
             if (fileFragment != null && fileFragment.isAdded()) {
                 fileFragment.onDataReceived(data);
             }
         } else if (data.startsWith("{") && data.contains("\"bw\"")) {
-            // Datos de configuración JSON
             if (settingFragment != null && settingFragment.isAdded()) {
                 settingFragment.onConfigReceived(data);
             }
         } else if (data.startsWith("[FILE_START:")) {
-            // Inicio de descarga de archivo
             if (fileFragment != null && fileFragment.isAdded()) {
                 fileFragment.onFileDownloadStart(data);
             }
         } else if (data.equals("[FILE_END]")) {
-            // Fin de descarga de archivo
             if (fileFragment != null && fileFragment.isAdded()) {
                 fileFragment.onFileDownloadEnd();
             }
@@ -426,7 +414,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         runOnUiThread(() -> {
             Toast.makeText(this, "✅ Conexión establecida", Toast.LENGTH_SHORT).show();
 
-            // Solicitar configuración inicial y lista de archivos
             new Handler().postDelayed(() -> {
                 if (configManager != null) {
                     configManager.getConfig();
@@ -527,9 +514,6 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
         return super.onOptionsItemSelected(item);
     }
 
-    /**
-     * Mostrar diálogo Acerca de
-     */
     private void showAboutDialog() {
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("LoRa Gateway Controller")
@@ -537,8 +521,7 @@ public class MainActivity extends AppCompatActivity implements BluetoothService.
                         "Control de dispositivos Heltec V3 por Bluetooth\n\n" +
                         "• Transmisión de archivos por LoRa\n" +
                         "• Configuración de parámetros\n" +
-                        "• Gestión de archivos\n\n" +
-                        "Desarrollado por: " + getResources().getString(R.string.app_name))
+                        "• Gestión de archivos")
                 .setPositiveButton("OK", null)
                 .show();
     }
